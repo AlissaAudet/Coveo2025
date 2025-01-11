@@ -6,16 +6,26 @@ class Bot:
 
     def __init__(self):
         self.state = {}
-        self.gatherer_mode = {}
+        self.role = {}
 
     def get_next_move(self, game_message: TeamGameState):
         actions = []
         for character in game_message.yourCharacters:
+            index = game_message.yourCharacters.index(character)
+            if character.id not in self.role :
+                if index % 2 == 0 :
+                    self.role[character.id] = "gatherer"
+                else :
+                    self.role[character.id] = "defender"
             if character.alive:
-                action = self.gatherer(character, game_message)
-                if action:
-                    actions.extend(action)
-                    print(f"Actions for {character.id}: {action}")  # Debugging output
+                if self.role[character.id] == "gatherer" :
+                    action = self.gatherer(character, game_message)
+                    if action:
+                        actions.extend(action)
+                        print(f"Actions for {character.id}: {action}")  # Debugging output
+                elif self.role[character.id] == "defender" :
+                    #Implementer logique
+                    continue
         return actions
 
     def gatherer(self, character, game_message):
@@ -73,7 +83,30 @@ class Bot:
                         return Position(x, y)
         print("No empty position found in the team zone.")
         return None
+    
+    def get_nearest_enemy_character(self, character, game_message) :
+        enemies = [
+            enemy for enemy in game_message.otherCharacters
+            if game_message.teamZoneGrid[enemy.position.x][enemy.position.y] == game_message.currentTeamId
+        ]
+        if not enemies:
+            return None
 
+        nearest_enemy = min(enemies, key=lambda enemy: self.manhattan_distance(character.position, enemy.position))
+        return nearest_enemy   
+    
+    def get_nearest_enemy_tile(self, character, game_message) :
+        nearest_dist = 10000
+        nearest_position = None
+        for x in range(len(game_message.teamZoneGrid)) :
+            for y in range(len(game_message.teamZoneGrid[x])):
+                if game_message.teamZoneGrid[x][y] != game_message.currentTeamId and game_message.teamZoneGrid[x][y] != '':
+                    distance = self.manhattan_distance(character.position, Position(x, y))
+                    if nearest_dist > distance:
+                        nearest_dist = distance
+                        nearest_position = Position(x, y)
+        return nearest_position
+    
     def manhattan_distance(self, pos1, pos2):
         return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
 
