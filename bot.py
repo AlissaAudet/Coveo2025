@@ -123,7 +123,7 @@ class Bot:
             for direction in directions:
                 neighbor = Position(current.x + direction.x, current.y + direction.y)
                 neighbor_tuple = (neighbor.x, neighbor.y)
-                if not self.is_valid(neighbor, game_map):
+                if not is_valid(neighbor, game_map):
                     #print(f"Ignored invalid neighbor: ({neighbor.x}, {neighbor.y})")
                     continue
 
