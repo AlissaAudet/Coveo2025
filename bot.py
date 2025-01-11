@@ -7,6 +7,7 @@ class Bot:
         print("Initializing your super mega duper bot")
 
     def get_next_move(self, game_message: TeamGameState):
+        self.print_grid(game_message.map)
         actions = []
 
         for character in game_message.yourCharacters:
@@ -14,7 +15,7 @@ class Bot:
                 actions.append(MoveToAction(characterId=character.id, position=character.position))
                 continue
 
-            target = self.find_nearest_safe_item(character, game_message)
+            target = self.find_nearest_blitzium(character, game_message)
             if target:
                 path = self.a_star(character.position, target.position, game_message.map, game_message.otherCharacters)
                 if path and len(path) > 1:
@@ -33,8 +34,16 @@ class Bot:
 
         return actions
 
-    def find_nearest_safe_item(self, character, game_message):
+    def find_nearest_blitzium(self, character, game_message):
         items = [item for item in game_message.items if item.type.startswith("blitzium")]
+        if not items:
+            print("blitzium pas trouvé")
+            return None
+
+        return min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
+
+    def find_nearest_radiant(self, character, game_message):
+        items = [item for item in game_message.items if item.type.startswith("radiant")]
         if not items:
             return None
         return min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
@@ -43,10 +52,18 @@ class Bot:
         return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
 
     def is_valid_position(self, pos, game_map):
-        if not (0 <= pos.x < game_map.width and 0 <= pos.y < game_map.height):
+        if not (0 <= pos.x < game_map.height and 0 <= pos.y < game_map.width):
             return False
         if game_map.tiles[pos.y][pos.x] == TileType.WALL:
             return False
+        return True
+
+    def is_valid(self, pos, game_map):
+        # Vérification des limites de la carte
+        if not (0 <= pos.x < game_map.height and 0 <= pos.y < game_map.width):
+            return False  # Position hors limites
+        if game_map.tiles[pos.y][pos.x] == TileType.WALL:
+            return False  # Mur
         return True
 
     def a_star(self, start, goal, game_map, enemies):
@@ -54,7 +71,7 @@ class Bot:
             return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
 
         def is_valid(pos, game_map):
-            if not (0 <= pos.x < game_map.width and 0 <= pos.y < game_map.height):
+            if not (0 <= pos.x < game_map.height and 0 <= pos.y < game_map.width):
                 return False
             if game_map.tiles[pos.y][pos.x] == TileType.WALL:
                 return False
@@ -87,7 +104,8 @@ class Bot:
             for direction in directions:
                 neighbor = Position(current.x + direction.x, current.y + direction.y)
                 neighbor_tuple = (neighbor.x, neighbor.y)
-                if not is_valid(neighbor, game_map):
+                if not self.is_valid(neighbor, game_map):
+                    print(f"Ignored invalid neighbor: ({neighbor.x}, {neighbor.y})")
                     continue
 
                 tentative_g_score = g_score[current_tuple] + 1
@@ -101,6 +119,7 @@ class Bot:
         return None
 
     def get_move_action(self, character, next_step):
+
         dx = next_step.x - character.position.x
         dy = next_step.y - character.position.y
 
@@ -134,3 +153,9 @@ class Bot:
                 if grid[ny][nx] == 0:
                     neighbors.append(Position(x=nx, y=ny))
         return neighbors
+
+    def print_grid(self, game_map):
+        grid = game_map.tiles
+        for row in grid:
+            print("".join(["#" if tile == TileType.WALL else "." for tile in row]))
+        print("Grid printed successfully.")
