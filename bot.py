@@ -3,99 +3,79 @@ from game_message import *
 import heapq
 
 class Bot:
-    state = ""
-
     def __init__(self):
-        print("Initializing your super mega duper bot")
+        self.state = {}  # Dictionnaire pour garder un état par personnage
 
     def get_next_move(self, game_message: TeamGameState):
-        self.print_grid(game_message.map)
         actions = []
+        self.print_grid(game_message.map)  # Optionnel, pour débugger la grille
 
+        # Mise à jour de l'état selon le score maximum actuel
         score_max = max(game_message.score.values())
         cles_max = [k for k, v in game_message.score.items() if v == score_max]
 
         if game_message.currentTeamId in cles_max and len(cles_max) == 1:
-            state = "kill"
+            global_state = "kill"
         else:
-            state = "fetch"
+            global_state = "fetch"
 
         for character in game_message.yourCharacters:
-            if state == "fetch":
-                actions.append(SetSkinAction(characterId=character.id, skinIndex=0))
-            elif state == "kill":
-                actions.append(SetSkinAction(characterId=character.id, skinIndex=1))
+            if character.id not in self.state:
+                self.state[character.id] = global_state  # Initialise l'état par personnage
 
             if not character.alive:
                 actions.append(MoveToAction(characterId=character.id, position=character.position))
                 continue
-            meme_position = False
-            selected_path = None
+
+            # Vérifier si le personnage est déjà sur un item 'blitzium'
             items = [item for item in game_message.items if item.type.startswith("blitzium")]
+            item_at_position = next((item for item in items if item.position == character.position), None)
 
-            for item in items:
-                if item.position == character.position:
-                    meme_position = True
-                    actions.append(GrabAction(
-                        characterId=character.id
-                    ))
-                    break
-                path = self.a_star(character.position, item.position, game_message.map, game_message.otherCharacters)
-                if path is not None:
-                    # Sélectionner le chemin le plus court
-                    if selected_path is None or len(path) < len(selected_path):
-                        selected_path = path
+            if item_at_position:
+                actions.append(GrabAction(characterId=character.id))  # Ramasser l'item
+                continue  # Passe au prochain caractère après avoir ramassé l'item
 
-            if selected_path is not None and len(selected_path) > 1 and meme_position is False:
-                actions.append(self.get_move_action(character, selected_path[1]))
-            else:
-                print(f"No valid path found for character {character.id}, moving randomly.")
-                actions.append(self.get_random_move(character))
+            if self.state[character.id] == "fetch":
+                target_item = self.find_nearest_blitzium(character, game_message)
+                if target_item is not None:
+                    path = self.a_star(character.position, target_item.position, game_message.map,
+                                       game_message.otherCharacters)
+                    if path and len(path) > 1:
+                        move_action = self.get_move_action(character, path[1])
+                        actions.append(move_action)
+                    else:
+                        actions.append(self.get_random_move(character))
+                else:
+                    actions.append(self.get_random_move(character))
+
+            elif self.state[character.id] == "kill":
+                # Ajoutez ici la logique pour 'kill' si nécessaire
+                pass
 
         return actions
 
     def find_nearest_blitzium(self, character, game_message):
-        items = [item for item in game_message.items if item.type.startswith("blitzium")]
-        if not items:
-            print("blitzium pas trouvé")
-            return None
-
-        return min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
-
-    def find_nearest_radiant(self, character, game_message):
-        items = [item for item in game_message.items if item.type.startswith("radiant")]
+        items = [item for item in game_message.items if item.type.startswith("blitzium") and item.position != character.position]
         if not items:
             return None
-        return min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
+        nearest_item = min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
+        return nearest_item
 
     def manhattan_distance(self, pos1, pos2):
         return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
 
-    def is_valid_position(self, pos, game_map):
-        if not (0 <= pos.x < game_map.height and 0 <= pos.y < game_map.width):
-            return False
-        if game_map.tiles[pos.y][pos.x] == TileType.WALL:
-            return False
-        return True
-
-    def is_valid(self, pos, game_map):
-        # Vérification des limites de la carte
-        if not (0 <= pos.x < game_map.height and 0 <= pos.y < game_map.width):
-            return False  # Position hors limites
-        if game_map.tiles[pos.y][pos.x] == TileType.WALL:
-            return False  # Mur
-        return True
-
     def a_star(self, start, goal, game_map, enemies):
+        grid = self.create_grid(game_map.tiles)
+
         def heuristic(pos1, pos2):
             return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
 
-        def is_valid(pos, game_map):
-            if not (0 <= pos.x < game_map.height and 0 <= pos.y < game_map.width):
+        def is_valid(pos):
+            if not (0 <= pos.x < len(grid[0]) and 0 <= pos.y < len(grid)):
                 return False
-            if game_map.tiles[pos.y][pos.x] == TileType.WALL:
+            if grid[pos.y][pos.x] == 1:
                 return False
-            if any(enemy.position.x == pos.x and enemy.position.y == pos.y for enemy in enemies if enemy.alive):
+            if any(enemy.position == pos for enemy in enemies if enemy.alive):
                 return False
             return True
 
@@ -124,8 +104,7 @@ class Bot:
             for direction in directions:
                 neighbor = Position(current.x + direction.x, current.y + direction.y)
                 neighbor_tuple = (neighbor.x, neighbor.y)
-                if not self.is_valid(neighbor, game_map):
-                    #print(f"Ignored invalid neighbor: ({neighbor.x}, {neighbor.y})")
+                if not is_valid(neighbor):
                     continue
 
                 tentative_g_score = g_score[current_tuple] + 1
@@ -139,7 +118,6 @@ class Bot:
         return None
 
     def get_move_action(self, character, next_step):
-
         dx = next_step.x - character.position.x
         dy = next_step.y - character.position.y
 
@@ -162,20 +140,24 @@ class Bot:
             MoveRightAction(characterId=character.id),
         ])
 
-    def get_neighbors(self, pos: Position, grid):
-        height = len(grid)
-        width = len(grid[0]) if height > 0 else 0
-        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        neighbors = []
-        for dx, dy in directions:
-            nx, ny = pos.x + dx, pos.y + dy
-            if 0 <= ny < height and 0 <= nx < width:
-                if grid[ny][nx] == 0:
-                    neighbors.append(Position(x=nx, y=ny))
-        return neighbors
-
     def print_grid(self, game_map):
         grid = game_map.tiles
-        for row in grid:
-            print("".join(["#" if tile == TileType.WALL else "." for tile in row]))
+        for x in range(len(grid[0])):  # Parcourt les colonnes (axe x)
+            print("".join(["#" if grid[y][x] == TileType.WALL else "." for y in range(len(grid))]))
         print("Grid printed successfully.")
+
+    def create_grid(self, tiles):
+        actual_height = len(tiles)
+        actual_width = len(tiles[0]) if actual_height > 0 else 0
+        grid = []
+        for x in range(actual_width):
+            grid_row = []
+            for y in range(actual_height):
+                tile = tiles[y][x]
+                if tile == TileType.WALL:
+                    grid_row.append(1)
+                else:
+                    grid_row.append(0)
+            grid.append(grid_row)
+
+        return grid
