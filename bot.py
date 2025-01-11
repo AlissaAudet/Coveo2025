@@ -4,7 +4,7 @@ import heapq
 
 class Bot:
     def __init__(self):
-        self.state = {}  # Dictionnaire pour garder un état par personnage
+        self.state = {}  #git add
 
     def get_next_move(self, game_message: TeamGameState):
         actions = []
