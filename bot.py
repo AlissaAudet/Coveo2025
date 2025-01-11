@@ -21,10 +21,13 @@ class Bot:
                 if self.role[character.id] == "gatherer" :
                     action = self.gatherer(character, game_message)
                     if action:
-                        actions.extend(action)
+                        actions.append(action)
                         print(f"Actions for {character.id}: {action}")  # Debugging output
-                elif self.role[character.id] == "defender" :
-                    #Implementer logique
+                elif self.role[character.id] == "defender":
+                    enemy = self.get_nearest_enemy_character(character, game_message)
+                    if enemy is not None:
+                        path = self.a_star(character.position, enemy.position, game_message.map, game_message.otherCharacters)
+                        actions.append(self.get_move_action(character, path[1]))
                     continue
         return actions
 
