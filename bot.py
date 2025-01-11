@@ -5,6 +5,8 @@ from game_message import *
 class Bot:
     tiles = []
     characters = []
+    state = ""
+
     def __init__(self):
         print("Initializing your super mega duper bot")
 
@@ -20,7 +22,20 @@ class Bot:
             setattr(Bot, "characters", game_message.yourCharacters)
         actions = []
 
+        score_max = max(game_message.score.values())
+        cles_max = [k for k, v in game_message.score.items() if v == score_max]
+
+        if game_message.currentTeamId in cles_max and len(cles_max) == 1:
+            state = "kill"
+        else:
+            state = "fetch"
+
         for character in game_message.yourCharacters:
+            if state == "fetch":
+                actions.append(SetSkinAction(characterId=character.id, skinIndex=0))
+            elif state == "kill":
+                actions.append(SetSkinAction(characterId=character.id, skinIndex=1))
+
             map_tile = game_message.map.tiles[character.position.x][character.position.y]
             bla = 1
             actions.append(
