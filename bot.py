@@ -15,21 +15,20 @@ class Bot:
                 actions.append(MoveToAction(characterId=character.id, position=character.position))
                 continue
 
-            target = self.find_nearest_blitzium(character, game_message)
-            if target:
-                path = self.a_star(character.position, target.position, game_message.map, game_message.otherCharacters)
-                if path and len(path) > 1:
-                    next_step = path[1]
-                    if self.is_valid_position(next_step, game_message.map):
-                        actions.append(self.get_move_action(character, next_step))
-                    else:
-                        print(f"Next step ({next_step.x}, {next_step.y}) is invalid, moving randomly.")
-                        actions.append(self.get_random_move(character))
-                else:
-                    print(f"No valid path found for character {character.id}, moving randomly.")
-                    actions.append(self.get_random_move(character))
+            selected_path = None
+            items = [item for item in game_message.items if item.type.startswith("blitzium")]
+
+            for item in items:
+                path = self.a_star(character.position, item.position, game_message.map, game_message.otherCharacters)
+                if path is not None:
+                    # Sélectionner le chemin le plus court
+                    if selected_path is None or len(path) < len(selected_path):
+                        selected_path = path
+
+            if selected_path and len(selected_path) > 1:
+                actions.append(self.get_move_action(character, selected_path[1]))
             else:
-                print(f"No target found for character {character.id}, moving randomly.")
+                print(f"No valid path found for character {character.id}, moving randomly.")
                 actions.append(self.get_random_move(character))
 
         return actions
@@ -105,7 +104,7 @@ class Bot:
                 neighbor = Position(current.x + direction.x, current.y + direction.y)
                 neighbor_tuple = (neighbor.x, neighbor.y)
                 if not self.is_valid(neighbor, game_map):
-                    print(f"Ignored invalid neighbor: ({neighbor.x}, {neighbor.y})")
+                    #print(f"Ignored invalid neighbor: ({neighbor.x}, {neighbor.y})")
                     continue
 
                 tentative_g_score = g_score[current_tuple] + 1
