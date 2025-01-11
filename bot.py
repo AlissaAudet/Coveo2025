@@ -3,59 +3,57 @@ from game_message import *
 import heapq
 
 class Bot:
+
     def __init__(self):
-        self.state = {}  #git add
+        self.state = {}
+        self.gatherer_mode = {}
 
     def get_next_move(self, game_message: TeamGameState):
         actions = []
-        self.print_grid(game_message.map)  # Optionnel, pour débugger la grille
-
-        # Mise à jour de l'état selon le score maximum actuel
-        score_max = max(game_message.score.values())
-        cles_max = [k for k, v in game_message.score.items() if v == score_max]
-
-        if game_message.currentTeamId in cles_max and len(cles_max) == 1:
-            global_state = "kill"
-        else:
-            global_state = "fetch"
-
         for character in game_message.yourCharacters:
-            if character.id not in self.state:
-                self.state[character.id] = global_state  # Initialise l'état par personnage
-
-            if not character.alive:
-                actions.append(MoveToAction(characterId=character.id, position=character.position))
-                continue
-
-            # Vérifier si le personnage est déjà sur un item 'blitzium'
-            items = [item for item in game_message.items if item.type.startswith("blitzium")]
-            item_at_position = next((item for item in items if item.position == character.position), None)
-
-            if item_at_position:
-                actions.append(GrabAction(characterId=character.id))  # Ramasser l'item
-                continue  # Passe au prochain caractère après avoir ramassé l'item
-
-            if self.state[character.id] == "fetch":
-                target_item = self.find_nearest_blitzium(character, game_message)
-                if target_item is not None:
-                    path = self.a_star(character.position, target_item.position, game_message.map,
-                                       game_message.otherCharacters)
-                    if path and len(path) > 1:
-                        move_action = self.get_move_action(character, path[1])
-                        actions.append(move_action)
-                    else:
-                        actions.append(self.get_random_move(character))
-                else:
-                    actions.append(self.get_random_move(character))
-
-            elif self.state[character.id] == "kill":
-                # Ajoutez ici la logique pour 'kill' si nécessaire
-                pass
-
+            if character.alive:
+                action = self.gatherer(character, game_message)
+                if action:
+                    actions.extend(action)
+                    print(f"Actions for {character.id}: {action}")  # Debugging output
         return actions
 
+    def gatherer(self, character, game_message):
+        actions_gatherer = []
+
+        # Check if the character is on the same position as any blitzium
+        current_blitzium = next((item for item in game_message.items if
+                                 item.type.startswith("blitzium") and item.position == character.position), None)
+        if current_blitzium:
+            actions_gatherer.append(GrabAction(characterId=character.id))
+            return actions_gatherer[1] if actions_gatherer else None
+
+
+        if character.numberOfCarriedItems < game_message.constants.maxNumberOfItemsCarriedPerCharacter:
+            path_to_blitzium = self.get_path_to_nearest_blitzium(character, game_message)
+            if path_to_blitzium:
+                actions_gatherer.extend(path_to_blitzium)
+        else:
+            path_to_drop_zone = self.get_path_to_nearest_drop_zone(character, game_message)
+            if path_to_drop_zone:
+                actions_gatherer.extend(path_to_drop_zone)
+
+        return actions_gatherer[1] if actions_gatherer else None
+
+    def get_path_to_nearest_blitzium(self, character, game_message):
+        nearest_item = self.find_nearest_blitzium(character, game_message)
+        if nearest_item is not None:
+            return self.a_star(character.position, nearest_item.position, game_message.map,
+                               game_message.otherCharacters)
+        return None
+
+    def get_path_to_nearest_drop_zone(self, character, game_message):
+        drop_position = self.find_first_empty_position_in_team_zone(character, game_message)
+        if drop_position is not None:
+            return self.a_star(character.position, drop_position, game_message.map, game_message.otherCharacters)
+        return None
+
     def find_nearest_blitzium(self, character, game_message):
-        # Assurer que la position de l'item est dans les limites de la grille
         items = [
             item for item in game_message.items
             if item.type.startswith("blitzium") and
@@ -63,12 +61,18 @@ class Bot:
                0 <= item.position.x < len(game_message.teamZoneGrid[0]) and
                game_message.teamZoneGrid[item.position.y][item.position.x] != game_message.currentTeamId
         ]
+        if items:
+            return min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
+        return None
 
-        if not items:
-            return None
-
-        nearest_item = min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
-        return nearest_item
+    def find_first_empty_position_in_team_zone(self, character, game_message):
+        for y in range(len(game_message.teamZoneGrid)):
+            for x in range(len(game_message.teamZoneGrid[0])):
+                if game_message.teamZoneGrid[y][x] == game_message.currentTeamId:
+                    if not any(item.position.x == x and item.position.y == y for item in game_message.items):
+                        return Position(x, y)
+        print("No empty position found in the team zone.")
+        return None
 
     def manhattan_distance(self, pos1, pos2):
         return abs(pos1.x - pos2.x) + abs(pos1.y - pos2.y)
