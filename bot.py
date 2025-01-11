@@ -27,15 +27,15 @@ class Bot:
                 actions.append(MoveToAction(characterId=character.id, position=character.position))
                 continue
 
-            # Vérifier si le personnage est déjà sur un item 'blitzium'
-            items = [item for item in game_message.items if item.type.startswith("blitzium")]
-            item_at_position = next((item for item in items if item.position == character.position), None)
-
-            if item_at_position:
-                actions.append(GrabAction(characterId=character.id))  # Ramasser l'item
-                continue  # Passe au prochain caractère après avoir ramassé l'item
-
             if self.state[character.id] == "fetch":
+                # Vérifier si le personnage est déjà sur un item 'blitzium'
+                items = [item for item in game_message.items if item.type.startswith("blitzium")]
+                item_at_position = next((item for item in items if item.position == character.position), None)
+
+                if item_at_position:
+                    actions.append(GrabAction(characterId=character.id))  # Ramasser l'item
+                    self.state[character.id] = "drop"
+                    continue  # Passe au prochain caractère après avoir ramassé l'item
                 target_item = self.find_nearest_blitzium(character, game_message)
                 if target_item is not None:
                     path = self.a_star(character.position, target_item.position, game_message.map,
@@ -51,6 +51,7 @@ class Bot:
             elif self.state[character.id] == "kill":
                 # Ajoutez ici la logique pour 'kill' si nécessaire
                 pass
+            
 
         return actions
 
