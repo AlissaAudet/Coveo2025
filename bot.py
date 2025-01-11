@@ -29,12 +29,13 @@ class Bot:
             if not character.alive:
                 actions.append(MoveToAction(characterId=character.id, position=character.position))
                 continue
-
+            meme_position = False
             selected_path = None
             items = [item for item in game_message.items if item.type.startswith("blitzium")]
 
             for item in items:
                 if item.position == character.position:
+                    meme_position = True
                     actions.append(GrabAction(
                         characterId=character.id
                     ))
@@ -45,7 +46,7 @@ class Bot:
                     if selected_path is None or len(path) < len(selected_path):
                         selected_path = path
 
-            if selected_path is not None and len(selected_path) > 1:
+            if selected_path is not None and len(selected_path) > 1 and meme_position is False:
                 actions.append(self.get_move_action(character, selected_path[1]))
             else:
                 print(f"No valid path found for character {character.id}, moving randomly.")
