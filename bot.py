@@ -21,7 +21,7 @@ class Bot:
                 if self.role[character.id] == "gatherer" :
                     action = self.gatherer(character, game_message)
                     if action:
-                        actions.extend(action)
+                        actions.append(self.get_move_action(character, action))
                         print(f"Actions for {character.id}: {action}")  # Debugging output
                 elif self.role[character.id] == "defender" :
                     #Implementer logique
@@ -34,21 +34,19 @@ class Bot:
         # Check if the character is on the same position as any blitzium
         current_blitzium = next((item for item in game_message.items if
                                  item.type.startswith("blitzium") and item.position == character.position), None)
-        if current_blitzium:
+        if current_blitzium and character.numberOfCarriedItems < game_message.constants.maxNumberOfItemsCarriedPerCharacter:
             actions_gatherer.append(GrabAction(characterId=character.id))
-            return actions_gatherer[1] if actions_gatherer else None
-
-
-        if character.numberOfCarriedItems < game_message.constants.maxNumberOfItemsCarriedPerCharacter:
+            return actions_gatherer[0] if actions_gatherer else None
+        else:
             path_to_blitzium = self.get_path_to_nearest_blitzium(character, game_message)
             if path_to_blitzium:
-                actions_gatherer.extend(path_to_blitzium)
-        else:
+                actions_gatherer.append(path_to_blitzium[1])
+        if character.numberOfCarriedItems > 0 :
             path_to_drop_zone = self.get_path_to_nearest_drop_zone(character, game_message)
             if path_to_drop_zone:
-                actions_gatherer.extend(path_to_drop_zone)
+                actions_gatherer.append(path_to_drop_zone[1])
 
-        return actions_gatherer[1] if actions_gatherer else None
+        return actions_gatherer[0] if actions_gatherer else None
 
     def get_path_to_nearest_blitzium(self, character, game_message):
         nearest_item = self.find_nearest_blitzium(character, game_message)
