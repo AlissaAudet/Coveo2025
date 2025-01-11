@@ -21,7 +21,7 @@ class Bot:
                 if self.role[character.id] == "gatherer" :
                     action = self.gatherer(character, game_message)
                     if action:
-                        actions.append(self.get_move_action(character, action))
+                        actions.append(action)
                         print(f"Actions for {character.id}: {action}")  # Debugging output
                 elif self.role[character.id] == "defender" :
                     #Implementer logique
@@ -40,11 +40,11 @@ class Bot:
         else:
             path_to_blitzium = self.get_path_to_nearest_blitzium(character, game_message)
             if path_to_blitzium:
-                actions_gatherer.append(path_to_blitzium[1])
+                actions_gatherer.append(self.get_move_action(character, path_to_blitzium[1]))
         if character.numberOfCarriedItems > 0 :
             path_to_drop_zone = self.get_path_to_nearest_drop_zone(character, game_message)
             if path_to_drop_zone:
-                actions_gatherer.append(path_to_drop_zone[1])
+                actions_gatherer.append(self.get_move_action(character, path_to_drop_zone[1]))
 
         return actions_gatherer[0] if actions_gatherer else None
 
