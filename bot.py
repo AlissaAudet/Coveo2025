@@ -34,13 +34,18 @@ class Bot:
             items = [item for item in game_message.items if item.type.startswith("blitzium")]
 
             for item in items:
+                if item.position == character.position:
+                    actions.append(GrabAction(
+                        characterId=character.id
+                    ))
+                    break
                 path = self.a_star(character.position, item.position, game_message.map, game_message.otherCharacters)
                 if path is not None:
                     # Sélectionner le chemin le plus court
                     if selected_path is None or len(path) < len(selected_path):
                         selected_path = path
 
-            if selected_path and len(selected_path) > 1:
+            if selected_path is not None and len(selected_path) > 1:
                 actions.append(self.get_move_action(character, selected_path[1]))
             else:
                 print(f"No valid path found for character {character.id}, moving randomly.")
