@@ -27,15 +27,15 @@ class Bot:
                 actions.append(MoveToAction(characterId=character.id, position=character.position))
                 continue
 
-            if self.state[character.id] == "fetch":
-                # Vérifier si le personnage est déjà sur un item 'blitzium'
-                items = [item for item in game_message.items if item.type.startswith("blitzium")]
-                item_at_position = next((item for item in items if item.position == character.position), None)
+            # Vérifier si le personnage est déjà sur un item 'blitzium'
+            items = [item for item in game_message.items if item.type.startswith("blitzium")]
+            item_at_position = next((item for item in items if item.position == character.position), None)
 
-                if item_at_position:
-                    actions.append(GrabAction(characterId=character.id))  # Ramasser l'item
-                    self.state[character.id] = "drop"
-                    continue  # Passe au prochain caractère après avoir ramassé l'item
+            if item_at_position:
+                actions.append(GrabAction(characterId=character.id))  # Ramasser l'item
+                continue  # Passe au prochain caractère après avoir ramassé l'item
+
+            if self.state[character.id] == "fetch":
                 target_item = self.find_nearest_blitzium(character, game_message)
                 if target_item is not None:
                     path = self.a_star(character.position, target_item.position, game_message.map,
@@ -51,14 +51,22 @@ class Bot:
             elif self.state[character.id] == "kill":
                 # Ajoutez ici la logique pour 'kill' si nécessaire
                 pass
-            
 
         return actions
 
     def find_nearest_blitzium(self, character, game_message):
-        items = [item for item in game_message.items if item.type.startswith("blitzium") and item.position != character.position]
+        # Assurer que la position de l'item est dans les limites de la grille
+        items = [
+            item for item in game_message.items
+            if item.type.startswith("blitzium") and
+               0 <= item.position.y < len(game_message.teamZoneGrid) and
+               0 <= item.position.x < len(game_message.teamZoneGrid[0]) and
+               game_message.teamZoneGrid[item.position.y][item.position.x] != game_message.currentTeamId
+        ]
+
         if not items:
             return None
+
         nearest_item = min(items, key=lambda item: self.manhattan_distance(character.position, item.position))
         return nearest_item
 
